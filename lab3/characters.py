@@ -74,3 +74,6 @@ print("---Weapon swap demo---")
 print(army[2].attack())
 character.equip_weapon(Axe)
 print(army[2].attack())
+
+## An equipment is modeled as a composition because it is a temporary attribute that can change at any given moment. 
+## Hence why we model it as a composition to allow for seamless change, where as if we used inheritance instead we would of had to make a specific class for each class type with the different weapons.

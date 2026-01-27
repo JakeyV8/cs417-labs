@@ -48,11 +48,9 @@ class Ranger(Character):
     def summon_power(self):
         return f"{self.name} fires a {self.special_power}! Enemy takes 2x damage!"
 
-class Bow(weapon)
-    def __init__(self , "Bow", "10"):
-
-class Axe(weapon)
-    def __init__(self,"Axe,"15"):
+Axe = Weapon(name="Axe", damage = "10")
+Bow = Weapon(name="Bow", damage = "10")
+Staff = Weapon(name = "Staff", damage = "15")
 
 army = [
     Warrior("Thorin"),
@@ -60,7 +58,15 @@ army = [
     Ranger("Legolas")
 ]
 
-
+print("---My Army---")
 for character in army:
-    character.equip_weapon(Axe)
+    if character.__class__.__name__ =="Warrior":
+        character.equip_weapon(Axe)
+    elif character.__class__.__name__ =="Mage":
+        character.equip_weapon(Staff)
+    else:
+        character.equip_weapon(Bow)
+    print(character.__str__())
     print(character.get_status())
+    print(character.summon_power())
+

@@ -70,3 +70,7 @@ for character in army:
     print(character.get_status())
     print(character.summon_power())
 
+print("---Weapon swap demo---")
+print(army[2].attack())
+character.equip_weapon(Axe)
+print(army[2].attack())

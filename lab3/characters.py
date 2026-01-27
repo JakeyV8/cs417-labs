@@ -42,4 +42,25 @@ class Mage(Character):
     def summon_power(self):
         return f"{self.name} channels {self.special_power}! Enemies are stunned!"
 
+class Ranger(Character):
+    def __init__(self,name):
+        super().__init__(name,"Critical hit")
+    def summon_power(self):
+        return f"{self.name} fires a {self.special_power}! Enemy takes 2x damage!"
 
+class Bow(weapon)
+    def __init__(self , "Bow", "10"):
+
+class Axe(weapon)
+    def __init__(self,"Axe,"15"):
+
+army = [
+    Warrior("Thorin"),
+    Mage("Gandalf"),
+    Ranger("Legolas")
+]
+
+
+for character in army:
+    character.equip_weapon(Axe)
+    print(character.get_status())

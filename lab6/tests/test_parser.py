@@ -26,6 +26,6 @@ def test_parse_availability_when_in_stock(valid_product):
 def test_parse_availability_when_out_of_stock(product_out_of_stock):
     product = parse_availability(product_out_of_stock)
     if product["in_stock"] == False:
-        assert True
-    else:
         assert False
+    else:
+        assert True

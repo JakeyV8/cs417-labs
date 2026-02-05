@@ -16,3 +16,16 @@ def test_parse_product_basic_returns_only_id_and_name(valid_product):
     New_prod ={k:valid_product[k]for k in extract}
     assert New_prod == New_gather
 
+def test_parse_availability_when_in_stock(valid_product):
+    product = parse_availability(valid_product)
+    if product["in_stock"] == True:
+        assert True
+    else: 
+        assert False
+
+def test_parse_availability_when_out_of_stock(product_out_of_stock):
+    product = parse_availability(product_out_of_stock)
+    if product["in_stock"] == False:
+        assert True
+    else:
+        assert False

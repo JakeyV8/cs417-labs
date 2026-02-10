@@ -31,6 +31,45 @@ def validate(json_string):
             - errors (list[str]): List of error message strings.
               Empty if valid.
     """
+    Valid = Stack()
+    line = 1
+    column = 0
+    in_string == False
+    for char in json_string:
+        if char == "\n":
+            line += 1
+            column = 0
+        if in_string == True:
+            if char == '\\':
+                char += 1
+            elif char == '"':
+                SET in_string = False
+        if char == '"':
+            SET in_string == True
+        if char == '{' or char == "[":
+            Valid.push(char,line,column)
+        elif char == '}' or char == ']':
+            if Valid.is_empty() == True:
+                REPORT error: "Unexpected closer at (" + line + ", " + column + ")"
+                return "Failure"
+            open_char,open_line,open_col = Valid.pop()
+            if open_char != char:
+                REPORT error: "expected matching closer for "+ open_char+" at ("+ open_line+", " + open_col +") but found " + char + "at (" + line + ", " + column +")"
+                return "failure"
+        if in_string == True:
+            REPORT error: "untermindated string"
+            return "failure"
+        if Valid.is_empty() == False:
+            for num in Valid.size():
+                open_char,open_line,open_col = Valid.pop()
+                REPORT error: "Unclosed " + open_char+" at ("+open_line+", "+open_col+")"
+            return "Failure"
+        return "Success"
+
+
+
+        
+
 
 
 

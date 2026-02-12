@@ -1,0 +1,618 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "toc_visible": true,
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/JakeyV8/cs417-labs/blob/main/Lab8\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# Lab: Grocery Checkout Queue Simulation\n",
+        "## Single Line vs. Multi-Queue — Which Is Better?\n",
+        "\n",
+        "\n",
+        "\n",
+        "---\n",
+        "\n",
+        "### Scenario\n",
+        "\n",
+        "You're a data analyst consulting for a grocery chain. Management wants to know whether they should switch from the traditional model (each checkout lane has its own line) to a **single line** (one shared line that feeds all registers — like you see at banks or airport security).\n",
+        "\n",
+        "Your job: **simulate both approaches and compare them with data.**\n",
+        "\n",
+        "### Learning Objectives\n",
+        "\n",
+        "By the end of this lab you will be able to:\n",
+        "\n",
+        "1. Implement queue data structures using Python's `collections.deque`\n",
+        "2. Build a discrete-time simulation of a real-world queueing system\n",
+        "3. Compare two queue strategies using performance metrics (average wait, max wait, fairness)\n",
+        "4. Draw conclusions from simulation output"
+      ],
+      "metadata": {
+        "id": "_8r0BwoZjr_o"
+      }
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "5ceoWwBIjIDP"
+      },
+      "source": [
+        "---\n",
+        "## Part 1: Setup & Customer Generation\n",
+        "\n",
+        "Run the cell below to set up the simulation infrastructure. Read through the code and comments to understand the data model before moving on."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "8_NEH1DwjIDP",
+        "outputId": "b6306be1-1ce0-4990-fe49-9ea44050d693",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        }
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Generated 30 customers for 3 registers.\n",
+            "\n",
+            "First 5 customers:\n",
+            "  Customer 0: arrives at t=3, needs 2 time steps to check out\n",
+            "  Customer 1: arrives at t=4, needs 12 time steps to check out\n",
+            "  Customer 2: arrives at t=6, needs 4 time steps to check out\n",
+            "  Customer 3: arrives at t=7, needs 3 time steps to check out\n",
+            "  Customer 4: arrives at t=10, needs 2 time steps to check out\n",
+            "\n",
+            "Service time range: 1 – 12 steps\n"
+          ]
+        }
+      ],
+      "source": [
+        "import random\n",
+        "from collections import deque\n",
+        "from dataclasses import dataclass\n",
+        "from copy import deepcopy\n",
+        "\n",
+        "@dataclass\n",
+        "class Customer:\n",
+        "    \"\"\"Represents a single grocery customer.\"\"\"\n",
+        "    id: int\n",
+        "    arrival_time: int        # time step when customer arrives\n",
+        "    service_time: int        # how many time steps it takes to check out\n",
+        "    start_service_time: int = -1   # when they actually begin checkout\n",
+        "    finish_time: int = -1          # when they finish checkout\n",
+        "\n",
+        "    @property\n",
+        "    def wait_time(self):\n",
+        "        \"\"\"Time spent waiting in line (not including service).\"\"\"\n",
+        "        if self.start_service_time == -1:\n",
+        "            return None\n",
+        "        return self.start_service_time - self.arrival_time\n",
+        "\n",
+        "    @property\n",
+        "    def total_time(self):\n",
+        "        \"\"\"Total time from arrival to leaving the store.\"\"\"\n",
+        "        if self.finish_time == -1:\n",
+        "            return None\n",
+        "        return self.finish_time - self.arrival_time\n",
+        "\n",
+        "\n",
+        "def generate_customers(n, seed=42):\n",
+        "    \"\"\"\n",
+        "    Generate n customers with random arrival times and service times.\n",
+        "\n",
+        "    - Customers arrive every 1-3 time steps (simulates a busy period)\n",
+        "    - Service time ranges from 1-12 steps (express item to full cart)\n",
+        "    - Wide service time range is important: it creates situations where\n",
+        "      one lane gets unlucky with slow shoppers.\n",
+        "    \"\"\"\n",
+        "    random.seed(seed)\n",
+        "    customers = []\n",
+        "    current_time = 0\n",
+        "\n",
+        "    for i in range(n):\n",
+        "        current_time += random.randint(1, 3)   # inter-arrival time\n",
+        "        service_time = random.randint(1, 12)    # checkout duration\n",
+        "        customers.append(Customer(id=i, arrival_time=current_time, service_time=service_time))\n",
+        "\n",
+        "    return customers\n",
+        "\n",
+        "\n",
+        "# Generate our test group\n",
+        "NUM_CUSTOMERS = 30\n",
+        "NUM_REGISTERS = 3\n",
+        "\n",
+        "# We use deepcopy so each simulation gets its own Customer objects\n",
+        "customers_template = generate_customers(NUM_CUSTOMERS, seed=42)\n",
+        "\n",
+        "print(f\"Generated {NUM_CUSTOMERS} customers for {NUM_REGISTERS} registers.\")\n",
+        "print(f\"\\nFirst 5 customers:\")\n",
+        "for c in customers_template[:5]:\n",
+        "    print(f\"  Customer {c.id}: arrives at t={c.arrival_time}, needs {c.service_time} time steps to check out\")\n",
+        "print(f\"\\nService time range: \"\n",
+        "      f\"{min(c.service_time for c in customers_template)} – {max(c.service_time for c in customers_template)} steps\")"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "MElXAExljIDQ"
+      },
+      "source": [
+        "### Quick Check\n",
+        "\n",
+        "Before moving on, make sure you understand:\n",
+        "- Each customer has an `arrival_time` (when they show up) and a `service_time` (how long checkout takes)\n",
+        "- `wait_time` = how long they stand in line *before* getting to a register\n",
+        "- We use the **same** customer data for both simulations so the comparison is fair\n",
+        "- Service times vary widely (1–12) — some shoppers have a few items, others a full cart"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "ftCrSKJJjIDQ"
+      },
+      "source": [
+        "---\n",
+        "## Part 2: Multi-Queue Simulation\n",
+        "\n",
+        "In the **multi-queue** model, each register has its own line. Customers are assigned to lanes in **round-robin** order as they arrive: Customer 0 → Lane 0, Customer 1 → Lane 1, Customer 2 → Lane 2, Customer 3 → Lane 0, and so on. Once assigned, a customer is **stuck in that lane** — no switching.\n",
+        "\n",
+        "Each lane works like a queue: customers are served in FIFO order by that lane's single cashier. A customer can't start checkout until everyone ahead of them in their lane is done.\n",
+        "\n",
+        "**Your task:** Complete the simulation by filling in the `# TODO` sections."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "1tHMcohtjIDR",
+        "outputId": "c3221cad-823a-47a8-9cea-91b35ab0e3f9",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        }
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Multi-Queue Results (first 9 customers):\n",
+            "  Customer 0 (Lane 0): arrived t=3, served at t=3, done t=5, waited 0 steps\n",
+            "  Customer 1 (Lane 1): arrived t=4, served at t=4, done t=16, waited 0 steps\n",
+            "  Customer 2 (Lane 2): arrived t=6, served at t=16, done t=20, waited 10 steps\n",
+            "  Customer 3 (Lane 0): arrived t=7, served at t=7, done t=10, waited 0 steps\n",
+            "  Customer 4 (Lane 1): arrived t=10, served at t=20, done t=22, waited 10 steps\n",
+            "  Customer 5 (Lane 2): arrived t=13, served at t=22, done t=34, waited 9 steps\n",
+            "  Customer 6 (Lane 0): arrived t=16, served at t=16, done t=18, waited 0 steps\n",
+            "  Customer 7 (Lane 1): arrived t=19, served at t=34, done t=41, waited 15 steps\n",
+            "  Customer 8 (Lane 2): arrived t=20, served at t=41, done t=42, waited 21 steps\n"
+          ]
+        }
+      ],
+      "source": [
+        "def simulate_multi_queue(customers, num_registers):\n",
+        "    \"\"\"\n",
+        "    Simulate the multi-queue model.\n",
+        "    Customers are assigned to lanes round-robin.\n",
+        "    Each lane has its own deque and one cashier.\n",
+        "    \"\"\"\n",
+        "    # Create a deque for each lane\n",
+        "    lanes = [deque() for _ in range(num_registers)]\n",
+        "\n",
+        "    # ---- TODO 1 ----\n",
+        "    # Distribute customers across lanes using round-robin.\n",
+        "    # Customer 0 → lane 0, Customer 1 → lane 1, Customer 2 → lane 2,\n",
+        "    # Customer 3 → lane 0, etc.\n",
+        "    # Hint: use the modulo operator (%) to cycle through lanes.\n",
+        "\n",
+        "    for i, customer in enumerate(customers):\n",
+        "        if i == 0 or i%3 == 0:\n",
+        "          lane_idx = 0\n",
+        "        elif round(i%3,2) == 0.33:\n",
+        "          lane_idx = 1\n",
+        "        else:\n",
+        "          lane_idx = 2\n",
+        "        lanes[lane_idx].append(customer)\n",
+        "\n",
+        "    # ---- TODO 2 ----\n",
+        "    # Process each lane independently.\n",
+        "    # For each lane, go through customers in FIFO order:\n",
+        "    #   - A customer starts when the previous customer finishes\n",
+        "    #     OR when they arrive, whichever is LATER.\n",
+        "    #   - finish_time = start_service_time + service_time\n",
+        "    #\n",
+        "    # We use prev_finish to track when the cashier becomes free.\n",
+        "\n",
+        "    for lane in lanes:\n",
+        "        prev_finish = 0  # tracks when the cashier becomes free\n",
+        "        for customer in lane:\n",
+        "          if customer.arrival_time > prev_finish:\n",
+        "            customer.start_service_time = customer.arrival_time\n",
+        "          else:\n",
+        "            customer.start_service_time = prev_finish\n",
+        "          #customer.start_service_time = max(prev_finish, customer.arrival_time)\n",
+        "          customer.finish_time = customer.start_service_time + customer.service_time   # <-- REPLACE THIS LINE\n",
+        "          prev_finish = customer.finish_time\n",
+        "\n",
+        "    return customers\n",
+        "\n",
+        "\n",
+        "# Run the simulation\n",
+        "customers_multi = deepcopy(customers_template)\n",
+        "results_multi = simulate_multi_queue(customers_multi, NUM_REGISTERS)\n",
+        "\n",
+        "# Quick sanity check\n",
+        "print(\"Multi-Queue Results (first 9 customers):\")\n",
+        "for c in results_multi[:9]:\n",
+        "    lane = c.id % NUM_REGISTERS\n",
+        "    print(f\"  Customer {c.id} (Lane {lane}): arrived t={c.arrival_time}, \"\n",
+        "          f\"served at t={c.start_service_time}, done t={c.finish_time}, \"\n",
+        "          f\"waited {c.wait_time} steps\")"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "cM1VOAJojIDS"
+      },
+      "source": [
+        "<details>\n",
+        "<summary><b>Click here for hints if you're stuck</b></summary>\n",
+        "\n",
+        "**TODO 1:**\n",
+        "```python\n",
+        "lane_idx = i % num_registers\n",
+        "```\n",
+        "\n",
+        "**TODO 2:**\n",
+        "```python\n",
+        "customer.start_service_time = max(prev_finish, customer.arrival_time)\n",
+        "customer.finish_time = customer.start_service_time + customer.service_time\n",
+        "```\n",
+        "The `max()` is key: if the cashier is still busy (`prev_finish` is in the future), the customer waits. If the cashier is already free, the customer starts right when they arrive.\n",
+        "</details>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "g68sKpPcjIDS"
+      },
+      "source": [
+        "---\n",
+        "## Part 3: Single Line Simulation\n",
+        "\n",
+        "In the **single line** model, there's one shared queue. Whenever a register opens up, the **next person in line** goes to that register — no one gets stuck behind a slow shopper while another register sits idle.\n",
+        "\n",
+        "**Your task:** Complete the simulation below."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "sJGsSNPujIDS",
+        "outputId": "f2fe1bdf-13b2-44bb-d404-6ff492ee96af",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        }
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Single Line Results (first 9 customers):\n",
+            "  Customer 0: arrived t=3, served at t=3, done t=5, waited 0 steps\n",
+            "  Customer 1: arrived t=4, served at t=4, done t=16, waited 0 steps\n",
+            "  Customer 2: arrived t=6, served at t=6, done t=10, waited 0 steps\n",
+            "  Customer 3: arrived t=7, served at t=7, done t=10, waited 0 steps\n",
+            "  Customer 4: arrived t=10, served at t=10, done t=12, waited 0 steps\n",
+            "  Customer 5: arrived t=13, served at t=13, done t=25, waited 0 steps\n",
+            "  Customer 6: arrived t=16, served at t=16, done t=18, waited 0 steps\n",
+            "  Customer 7: arrived t=19, served at t=19, done t=26, waited 0 steps\n",
+            "  Customer 8: arrived t=20, served at t=20, done t=21, waited 0 steps\n"
+          ]
+        }
+      ],
+      "source": [
+        "def simulate_single_line(customers, num_registers):\n",
+        "    \"\"\"\n",
+        "    Simulate the single line model.\n",
+        "    One shared queue, multiple registers.\n",
+        "    Each customer goes to whichever register opens first.\n",
+        "    \"\"\"\n",
+        "    # Track when each register becomes free\n",
+        "    register_free_at = [0] * num_registers\n",
+        "\n",
+        "    for customer in customers:\n",
+        "        t = customer.arrival_time\n",
+        "\n",
+        "        # ---- TODO 3 ----\n",
+        "        # Find the register that will be free the EARLIEST.\n",
+        "        # Hint: use min() with range(num_registers) and a key function\n",
+        "        # that looks up register_free_at.\n",
+        "\n",
+        "        best_register = min(range(num_registers), key = lambda i: register_free_at[i])  # <-- REPLACE THIS LINE\n",
+        "\n",
+        "        # ---- TODO 4 ----\n",
+        "        # The customer starts when the register is free OR when\n",
+        "        # they arrive, whichever is later. Then compute finish time.\n",
+        "\n",
+        "        customer.start_service_time = max(register_free_at[best_register],t)  # <-- REPLACE THIS LINE\n",
+        "        customer.finish_time = customer.start_service_time + customer.service_time     # <-- REPLACE THIS LINE\n",
+        "\n",
+        "        # Update that register's availability\n",
+        "        register_free_at[best_register] = customer.finish_time\n",
+        "\n",
+        "    return customers\n",
+        "\n",
+        "\n",
+        "# Run the simulation\n",
+        "customers_single = deepcopy(customers_template)\n",
+        "results_single = simulate_single_line(customers_single, NUM_REGISTERS)\n",
+        "\n",
+        "# Quick sanity check\n",
+        "print(\"Single Line Results (first 9 customers):\")\n",
+        "for c in results_single[:9]:\n",
+        "    print(f\"  Customer {c.id}: arrived t={c.arrival_time}, \"\n",
+        "          f\"served at t={c.start_service_time}, done t={c.finish_time}, \"\n",
+        "          f\"waited {c.wait_time} steps\")"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "7AHcxwjPjIDT"
+      },
+      "source": [
+        "<details>\n",
+        "<summary><b>Click here for hints if you're stuck</b></summary>\n",
+        "\n",
+        "**TODO 3:**\n",
+        "```python\n",
+        "best_register = min(range(num_registers), key=lambda i: register_free_at[i])\n",
+        "```\n",
+        "\n",
+        "**TODO 4:**\n",
+        "```python\n",
+        "customer.start_service_time = max(register_free_at[best_register], t)\n",
+        "customer.finish_time = customer.start_service_time + customer.service_time\n",
+        "```\n",
+        "\n",
+        "Notice the per-customer logic is the same `max()`/addition pattern as Part 2 — the difference is *structural*. In the single line, every customer is guaranteed to go to the next available register. In multi-queue, you're stuck in your assigned lane regardless.\n",
+        "</details>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "CbsrxYygjIDT"
+      },
+      "source": [
+        "---\n",
+        "## Part 4: Compare and Analyze\n",
+        "\n",
+        "Now let's put the two models head-to-head. Run the analysis cells below, then answer the discussion questions."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "hSNtbRLzjIDT",
+        "outputId": "8f1096c1-90cb-4ce5-f8e1-847d21f6d812",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        }
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Metric                        Multi-Queue  Single Line\n",
+            "------------------------------------------------------\n",
+            "Avg Wait Time                        21.3          1.7\n",
+            "Max Wait Time                          61            9\n",
+            "Std Dev (Wait)                       19.5          2.2\n",
+            "Avg Total Time                       27.2          7.6\n",
+            "Max Total Time                         70           18\n",
+            "Customers w/ Zero Wait               8/30        16/30\n"
+          ]
+        }
+      ],
+      "source": [
+        "import statistics\n",
+        "\n",
+        "def compute_metrics(results):\n",
+        "    \"\"\"Compute key performance metrics.\"\"\"\n",
+        "    wait_times = [c.wait_time for c in results]\n",
+        "    total_times = [c.total_time for c in results]\n",
+        "\n",
+        "    metrics = {\n",
+        "        \"Avg Wait Time\": f\"{statistics.mean(wait_times):.1f}\",\n",
+        "        \"Max Wait Time\": f\"{max(wait_times)}\",\n",
+        "        \"Std Dev (Wait)\": f\"{statistics.stdev(wait_times):.1f}\",\n",
+        "        \"Avg Total Time\": f\"{statistics.mean(total_times):.1f}\",\n",
+        "        \"Max Total Time\": f\"{max(total_times)}\",\n",
+        "        \"Customers w/ Zero Wait\": f\"{sum(1 for w in wait_times if w == 0)}/{len(wait_times)}\",\n",
+        "    }\n",
+        "    return metrics\n",
+        "\n",
+        "\n",
+        "metrics_multi = compute_metrics(results_multi)\n",
+        "metrics_single = compute_metrics(results_single)\n",
+        "\n",
+        "# Display comparison table\n",
+        "print(f\"{'Metric':<28} {'Multi-Queue':>12} {'Single Line':>12}\")\n",
+        "print(\"-\" * 54)\n",
+        "for key in metrics_multi:\n",
+        "    print(f\"{key:<28} {metrics_multi[key]:>12} {metrics_single[key]:>12}\")"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "ORzqrDdXjIDT",
+        "outputId": "9e930c79-954a-492c-bd9e-61dda32964db",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 431
+        }
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "/tmp/ipython-input-1067399796.py:22: MatplotlibDeprecationWarning: The 'labels' parameter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.\n",
+            "  bp = axes[1].boxplot([waits_multi, waits_single],\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<Figure size 1400x500 with 2 Axes>"
+            ],
+            "image/png": "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dm2FhIToo48+Uu/evfXRRx/JxcVFTzzxRK7H1axZU5L0008/5ek8f3+Awg2ZmZnZxqZOnao+ffpo1apV+vrrrzVs2DBNnjxZ27dvz1cznRf5uUbGXx5ElpWVpTJlymjx4sU5Hn/jgRI3/PUuGwAAcHehb83OXn1rRkaGjh49qvvvv/+m+1gsFi1fvlzbt2/X6tWr9dVXX6lv376aOnWqtm/frhIlStzyPK6urnJyKth72CwWS7YH2Uo597+3M3de3Or6Abi7ENoCsIsbdyBs2bJFW7du1fDhw63bQkJC5Orqqri4OO3YsUP/+Mc/rNtWr16ttLQ0ff755zb/cpyXX73Ka3PjaDceqlWmTBm1b9/+tuc5duyY2rRpY319+fJlxcfH23w+pT/vth05cqTi4+O1ZMkSde7cWX5+frnOXb16ddWoUUOrVq3SzJkzb9kM35gvMTHRZvzvdwPcULduXdWtW1djx47V999/r+bNm2vOnDl64403JOV8Lf39/eXh4aEjR45k23b48GE5OTllu1vkdlWpUkXffPONmjdvTiALAMA9jr715gqqb72Z5cuX6+rVq3laZqpJkyZq0qSJJk6cqCVLlqhnz55aunSp+vfvX+Cfzxt3GP/V0aNHbR665ufnl+MyBH/vf/NTW8WKFZWVlaVjx46pVq1a1vFz584pMTFRFStWzPNcAO4+LI8AwC4efPBBubm5afHixfrtt99s7lhwdXVVw4YNFRMToytXrtj8itmNfy3+678OJyUlacGCBbc8p6enp6TswaHZhIaGytvbW5MmTcpxXa4LFy7kaZ558+bZHD979mxdv35dnTp1stmvR48eslgseuGFF/TLL7+oV69eeZo/KipKFy9eVP/+/XX9+vVs27/++mutWbNG0v819N999511e2ZmpubNm2dzTHJycra56tatKycnJ5tfcfP09Mx2HYsVK6ZHHnlEq1atsvnVtHPnzmnJkiVq0aKFdVmHO/XEE08oMzNTr7/+erZt169fN/3XGAAAyDv61psrqL41J/v27dPw4cPl5+enwYMH33S/S5cuZbtztEGDBpJk7R89PDwkFdznc+XKldZ1fSVp586d2rFjh02fXaVKFR0+fNjmc7Bv3z7rMho35Ke2G/8oMGPGDJvxadOmSZI6d+6cr/cB4O7CnbYA7MLFxUUPPfSQNm/eLFdXV4WEhNhsb9asmaZOnSrJdl2wRx55RC4uLurSpYsGDRqky5cv6/3331eZMmUUHx+f6zmrVKkiX19fzZkzR15eXvL09FTjxo1Nt96ot7e3Zs+erX/9619q2LChnnrqKfn7++v06dP64osv1Lx5c7377ru3nCc9PV3t2rXTE088oSNHjui9995TixYt1LVrV5v9/P391bFjRy1btky+vr55bvaefPJJ/fTTT5o4caJ+/PFH9ejRQxUrVtTFixe1bt06bdiwQUuWLJEk1alTR02aNNGYMWP0xx9/qGTJklq6dGm2gPbbb7/VkCFD9Pjjj6t69eq6fv26PvzwQxUrVkzh4eHW/UJCQvTNN99o2rRpKleunIKDg9W4cWO98cYbWr9+vVq0aKHnn39ezs7Omjt3rtLS0vTWW2/l6X3lRatWrTRo0CBNnjxZe/fu1SOPPKLixYvr2LFjWrZsmWbOnKnHHnuswM4HAAAch7715gqqb928ebOuXbumzMxMXbx4UVu3btXnn38uHx8fffbZZzkuvXDDwoUL9d577+mf//ynqlSpopSUFL3//vvy9va2hpzu7u6qXbu2PvnkE1WvXl0lS5bU/fffn+uyC7mpWrWqWrRooeeee05paWmaMWOGSpUqpZdfftm6T9++fTVt2jSFhoaqX79+On/+vObMmaM6derYPBw3P7XVr19fERERmjdvnhITE9WqVSvt3LlTCxcuVFhYmM1v2QG49xDaArCbFi1aaPPmzdZfK/ur5s2ba+rUqfLy8lL9+vWt4zVq1NDy5cs1duxYjRo1SoGBgXruuefk7++vvn375nq+4sWLa+HChRozZoyeffZZXb9+XQsWLDBd8ytJTz/9tMqVK6c333xTb7/9ttLS0nTfffepZcuWeuaZZ/I0x7vvvqvFixdr/PjxysjIUI8ePTRr1qwcfwWrd+/eWrNmjZ544ols1yI3b7zxhtq2batZs2Zp9uzZ+uOPP+Tn56cmTZpo1apVNgHx4sWLNWjQIL355pvy9fVVv3791KZNG3Xo0MG6T/369RUaGqrVq1frt99+k4eHh+rXr6+1a9eqSZMm1v2mTZumgQMHauzYsbp69aoiIiLUuHFj1alTR5s3b9aYMWM0efJkZWVlqXHjxvroo4+sT0EuKHPmzFFISIjmzp2rV199Vc7OzqpUqZJ69eql5s2bF+i5AACAY9G33lxB9K2zZs2S9Of79vX1Va1atRQVFaUBAwZke1bA390ILpcuXapz587Jx8dHjRo10uLFi20+X/Pnz9fQoUM1YsQIpaenKzIy8rZD2969e8vJyUkzZszQ+fPn1ahRI7377rsqW7asdZ9atWpp0aJFGj9+vEaOHKnatWvrww8/1JIlSxQXF2czX35qmz9/vipXrqzY2FhroD1mzBhFRkbe1nsBcPewGKxIDQBFzqpVqxQWFqbvvvtOLVu2dHQ5AAAAAADgLwhtAaAIevTRR3Xo0CEdP378rnnwBQAAAAAARQXLIwBAEbJ06VLt379fX3zxhWbOnElgCwAAAACACXGnLQAUIRaLRSVKlNCTTz6pOXPmyNmZf7sDAAAAAMBs+Ns6ABQh/DsdAAAAAADm5+ToAgAAAAAAAAAA/4fQFgAAAAAAAABM5J5fHiErK0tnz56Vl5cXD9wBAAAoQgzDUEpKisqVKycnJ3Pdq0CPCgAAUDTltUe950Pbs2fPqkKFCo4uAwAAAA5y5swZlS9f3tFl2KBHBQAAKNpu1aPe86Gtl5eXpD8/Ed7e3g6uBgAAAPaSnJysChUqWPtBM6FHBQAAKJry2qPe86HtjV838/b2piEGAAAogsy4/AA9KgAAQNF2qx7VXIt7AQAAAAAAAEARR2gLAAAAAAAAACZCaAsAAAAAAAAAJnLPr2mbV5mZmcrIyHB0GTCB4sWLq1ixYo4uAwAAAAAAAEVUkQ9tDcNQQkKCEhMTHV0KTMTX11eBgYGmfHAJAAAAAAAA7m1FPrS9EdiWKVNGHh4ehHRFnGEYSk1N1fnz5yVJZcuWdXBFAAAAAAAAKGqKdGibmZlpDWxLlSrl6HJgEu7u7pKk8+fPq0yZMiyVAAAAAAAAALsq0g8iu7GGrYeHh4Mrgdnc+JpgnWMAAAAAAADYW5EObW9gSQT8HV8TAAAAAAAAcBRCWwAAAAAAAAAwEUJbSPrzztKVK1fmuk+fPn0UFhZml3oAAAAAAACAoqpIP4jsZi5Fj7br+fzGT8n3MX369NHChQs1aNAgzZkzx2bb4MGD9d577ykiIkKxsbH5nvvUqVMKDg7Wjz/+qAYNGljHZ86cKcMwbnl8ZmamZs2apQ8++EDHjh2Tu7u7mjRporFjx6p58+b5rgcAAAAAAAAoSrjT9i5WoUIFLV26VFevXrWOXbt2TUuWLFFQUFCBn8/Hx0e+vr657mMYhp566ilFR0frhRde0KFDhxQXF6cKFSqodevWt7ybFwAAAAAAACjqCG3vYg0bNlSFChW0YsUK69iKFSsUFBSkBx54wDpWqVIlzZgxw+bYBg0aaMKECTnOGxwcLEl64IEHZLFY1Lp1a0l5Wx7h008/1fLly7Vo0SL1799fwcHBql+/vubNm6euXbuqf//+unLlyk3nGz58uPV8kpSVlaXJkycrODhY7u7uql+/vpYvX27dHhsbmy1IXrlyZbYHia1atUoNGzaUm5ubKleurKioKF2/fj3X9wIAAAAAAAA4AqHtXa5v375asGCB9fUHH3ygZ5555o7m3LlzpyTpm2++UXx8vE0ofCtLlixR9erV1aVLl2zbXnzxRV28eFHr16/P83yTJ0/WokWLNGfOHP38888aMWKEevXqpU2bNuV5js2bN6t379564YUXdPDgQc2dO1exsbGaOHFinucAAAAAAAAA7IXQ9i7Xq1cvbdmyRb/++qt+/fVXbd26Vb169bqjOf39/SVJpUqVUmBgoEqWLJnnY48ePapatWrluO3G+NGjR/M0V1pamiZNmqQPPvhAoaGhqly5svr06aNevXpp7ty5ea4pKipKr7zyiiIiIlS5cmV16NBBr7/+er7mAAAAAAAAAOyFB5Hd5fz9/dW5c2fFxsbKMAx17txZpUuXLvTzLl68WIMGDbK+Xrt2rVq2bClJt3xYmYuLS57Ocfz4caWmpqpDhw424+np6TbLP9zKvn37tHXrVps7azMzM3Xt2jWlpqbKw8Mjz3MBAAAAZpSamqrDhw/nef+rV6/q1KlTqlSpktzd3fN8XM2aNemfAQCwA0Lbe0Dfvn01ZMgQSVJMTEy27U5OTtmC1IyMjDs6Z9euXdW4cWPr6/vuu0+SVK1aNR06dCjHY26MV69ePU91Xb58WZL0xRdfWOe/wdXVNU9z3JgnKipK3bt3z1aTm5vbTd4hAAD4u0vRo3Pd7jd+ip0qAfB3hw8fVkhISKGfZ/fu3WrYsGGhnwcAgKLO4aHtb7/9ptGjR2vt2rVKTU1V1apVtWDBAj344IOS/rxrMzIyUu+//74SExPVvHlzzZ49W9WqVXNw5ebRsWNHpaeny2KxKDQ0NNt2f39/xcfHW18nJyfr5MmTN53vxp2wmZmZN93Hy8tLXl5e2cZ79Oihp59+WqtXr862ru3UqVNVrlw5652z/v7+OnDggM0+e/fuVfHixSVJtWvXlqurq06fPq1WrVrlWIe/v79SUlJ05coVeXp6Wuf4q4YNG+rIkSOqWrXqTd8PAAAAcDerWbOmdu/enef9Dx06pF69eumjjz666fJmNzsPAAAofA4NbS9duqTmzZurTZs2Wrt2rfz9/XXs2DH5+flZ93nrrbc0a9YsLVy4UMHBwRo3bpxCQ0N18OBB7pL8/4oVK2a9i7VYsWLZtrdt21axsbHq0qWLfH19NX78+Bz3u6FMmTJyd3fXunXrVL58ebm5ucnHxydPtTz11FP69NNPFRERobffflvt2rVTcnKyYmJitGbNGq1bt84ayrZt21Zvv/22Fi1apKZNm+qjjz7SgQMHrEsfeHl5adSoURoxYoSysrLUokULJSUlaevWrfL29lZERIQaN24sDw8Pvfrqqxo2bJh27Nih2NhYm5rGjx+vRx99VEFBQXrsscfk5OSkffv26cCBA3rjjTfy9L4AAAAAM/Pw8LitO2Br1arFnbMAAJiQQx9ENmXKFFWoUEELFixQo0aNFBwcrEceeURVqlSR9OddtjNmzNDYsWPVrVs31atXT4sWLdLZs2e1cuVKR5ZuOt7e3vL29s5x25gxY9SqVSs9+uij6ty5s8LCwqyf45w4Oztr1qxZmjt3rsqVK6du3brluQ6LxaJly5bp1Vdf1fTp01WjRg3Vr19fy5cv148//qg2bdpY9w0NDdW4ceP08ssv66GHHlJKSop69+5tM9/rr7+ucePGafLkyapVq5Y6duyoL774QsHBwZKkkiVL6qOPPtKXX36punXr6uOPP9aECRNs5ggNDdWaNWv09ddf66GHHlKTJk00ffp0VaxYMc/vCwAAAAAAALAXi3Grp0YVotq1ays0NFT/+9//tGnTJt133316/vnnNWDAAEnSL7/8oipVqujHH39UgwYNrMe1atVKDRo00MyZM295juTkZPn4+CgpKSlbqHnt2jWdPHlSwcHB3LVbiPbs2aP27durX79+evvttx1dTp7wtQEAQHZ325q2ufWBjmbm2lA07NmzRyEhIaxRCwCAneW1D3Tonba//PKLdX3ar776Ss8995yGDRumhQsXSpISEhIkSQEBATbHBQQEWLf9XVpampKTk20+4FgNGzbUhg0b5OnpqRMnTji6HAAAALujRwUAAEB+OHRN26ysLD344IOaNGmSJOmBBx7QgQMHNGfOHEVERNzWnJMnT1ZUVFRBlokC8MADD1jXqgUAAChq6FEBAACQHw6907Zs2bKqXbu2zVitWrV0+vRpSVJgYKAk6dy5czb7nDt3zrrt78aMGaOkpCTrx5kzZwqhcgAAACDv6FEBAACQHw6907Z58+Y6cuSIzdjRo0etD4gKDg5WYGCgNmzYYF3TNjk5WTt27NBzzz2X45yurq5ydXUt1LoBAACA/KBHBQAAQH44NLQdMWKEmjVrpkmTJumJJ57Qzp07NW/ePM2bN0+SZLFYNHz4cL3xxhuqVq2agoODNW7cOJUrV05hYWGOLB0AAAAAAAAACoVDQ9uHHnpIn332mcaMGaPo6GgFBwdrxowZ6tmzp3Wfl19+WVeuXNHAgQOVmJioFi1aaN26dXJzc3Ng5QAAAAAAAABQOBwa2krSo48+qkcfffSm2y0Wi6KjoxUdHW3HqgAAAAAAAADAMRz6IDIAAAAAAAAAgC1CWwAAAAAAAAAwEULbe5TFYtHKlSsLdM4JEyaoQYMGBTrn3xVG3QAAAAAAAMDdxOFr2prR0OPz7Xq+f1ftn6/9L1y4oPHjx+uLL77QuXPn5Ofnp/r162v8+PFq3ry5JCk+Pl5+fn6FUe4d6dOnjxITE28azJq1bgAAAAAAAMBeCG3vQuHh4UpPT9fChQtVuXJlnTt3Ths2bNDFixet+wQGBjqwwtt3t9YNAAAAAAAAFBSWR7jLJCYmavPmzZoyZYratGmjihUrqlGjRhozZoy6du1q3e+vywycOnVKFotFK1asUJs2beTh4aH69etr27ZtNnO///77qlChgjw8PPTPf/5T06ZNk6+vb671zJ8/X7Vq1ZKbm5tq1qyp9957747e3+3UvWXLFrVs2VLu7u6qUKGChg0bpitXrtxRHQAAAAAAAICjENreZUqUKKESJUpo5cqVSktLy9exr732mkaNGqW9e/eqevXq6tGjh65fvy5J2rp1q5599lm98MIL2rt3rzp06KCJEyfmOt/ixYs1fvx4TZw4UYcOHdKkSZM0btw4LVy48LbfX37rPnHihDp27Kjw8HDt379fn3zyibZs2aIhQ4YUaA0AAAAAAACAvRDa3mWcnZ0VGxurhQsXytfXV82bN9err76q/fv33/LYUaNGqXPnzqpevbqioqL066+/6vjx45Kkf//73+rUqZNGjRql6tWr6/nnn1enTp1ynS8yMlJTp05V9+7dFRwcrO7du2vEiBGaO3dugbzXvNQ9efJk9ezZU8OHD1e1atXUrFkzzZo1S4sWLdK1a9cKtA4AAAAAAADAHght70Lh4eE6e/asPv/8c3Xs2FFxcXFq2LChYmNjcz2uXr161j+XLVtWknT+/HlJ0pEjR9SoUSOb/f/++q+uXLmiEydOqF+/fta7f0uUKKE33nhDJ06cuM13lv+69+3bp9jYWJsaQkNDlZWVpZMnTxZoHQAAAAAAAIA98CCyu5Sbm5s6dOigDh06aNy4cerfv78iIyPVp0+fmx5TvHhx658tFoskKSsr67bOf/nyZUl/roPbuHFjm23FihW7rTlvJre6L1++rEGDBmnYsGHZjgsKCirQOgAAAAAAAAB7ILS9R9SuXdv6AK/bUaNGDe3atctm7O+v/yogIEDlypXTL7/8op49e972ee9Uw4YNdfDgQVWtWtVhNQAAAAAAAAAFidD2LnPx4kU9/vjj6tu3r+rVqycvLy/98MMPeuutt9StW7fbnnfo0KF6+OGHNW3aNHXp0kXffvut1q5da72zNSdRUVEaNmyYfHx81LFjR6WlpemHH37QpUuXNHLkyJsel5SUpL1799qMlSpVShUqVMh33aNHj1aTJk00ZMgQ9e/fX56enjp48KDWr1+vd999N9/zAQAAAAAAAI5GaHuXKVGihBo3bqzp06frxIkTysjIUIUKFTRgwAC9+uqrtz1v8+bNNWfOHEVFRWns2LEKDQ3ViBEjcg0++/fvLw8PD7399tt66aWX5Onpqbp162r48OG5nisuLk4PPPCAzVi/fv00f/78fNddr149bdq0Sa+99ppatmwpwzBUpUoVPfnkk/meCwAAAAAAADADi2EYhqOLKEzJycny8fFRUlKSvL29bbZdu3ZNJ0+eVHBwsNzc3BxUoXkNGDBAhw8f1ubNmx1dit3xtQEAQHaXokfnut1v/BQ7VZI3ufWBjmbm2lA07NmzRyEhIdq9e7caNmzo6HIAACgy8toHcqctrN555x116NBBnp6eWrt2rRYuXKj33nvP0WUBAAAAAAAARQqhLax27typt956SykpKapcubJmzZql/v37O7osAAAAAAAAoEghtIXVp59+6ugSAAAAAAAAgCLP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\n"
+          },
+          "metadata": {}
+        }
+      ],
+      "source": [
+        "# Visualization: Wait time per customer for both models\n",
+        "import matplotlib.pyplot as plt\n",
+        "\n",
+        "fig, axes = plt.subplots(1, 2, figsize=(14, 5), sharey=True)\n",
+        "\n",
+        "# Wait times comparison - grouped bar chart\n",
+        "ids = [c.id for c in results_multi]\n",
+        "waits_multi = [c.wait_time for c in results_multi]\n",
+        "waits_single = [c.wait_time for c in results_single]\n",
+        "\n",
+        "bar_width = 0.4\n",
+        "axes[0].bar([x - bar_width/2 for x in ids], waits_multi, bar_width,\n",
+        "            color='#e74c3c', alpha=0.7, label='Multi-Queue')\n",
+        "axes[0].bar([x + bar_width/2 for x in ids], waits_single, bar_width,\n",
+        "            color='#2ecc71', alpha=0.7, label='Single Line')\n",
+        "axes[0].set_xlabel('Customer ID')\n",
+        "axes[0].set_ylabel('Wait Time (steps)')\n",
+        "axes[0].set_title('Wait Time by Customer')\n",
+        "axes[0].legend()\n",
+        "\n",
+        "# Distribution comparison - box plot\n",
+        "bp = axes[1].boxplot([waits_multi, waits_single],\n",
+        "                     labels=['Multi-Queue', 'Single Line'],\n",
+        "                     patch_artist=True)\n",
+        "bp['boxes'][0].set_facecolor('#e74c3c')\n",
+        "bp['boxes'][0].set_alpha(0.5)\n",
+        "bp['boxes'][1].set_facecolor('#2ecc71')\n",
+        "bp['boxes'][1].set_alpha(0.5)\n",
+        "axes[1].set_ylabel('Wait Time (steps)')\n",
+        "axes[1].set_title('Wait Time Distribution')\n",
+        "\n",
+        "plt.tight_layout()\n",
+        "plt.show()"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "oUOmp3IujIDT"
+      },
+      "source": [
+        "---\n",
+        "## Discussion Questions\n",
+        "\n",
+        "Answer these in a text cell below or discuss with your neighbor:\n",
+        "\n",
+        "1. **Which model had a lower average wait time?** Was the difference large or small?\n",
+        "\n",
+        "2. **Which model was more *fair*?** (Hint: look at the standard deviation and max wait time. A fairer system means less variation — nobody gets stuck with a terrible wait while others breeze through.)\n",
+        "\n",
+        "3. **Why does the single line tend to perform better?** Think about what happens in the multi-queue model when your lane happens to get several slow shoppers in a row.\n",
+        "\n",
+        "4. **Where have you seen each model in real life?** Why don't all stores use the single line model if it's better?"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "qWcP77opjIDT"
+      },
+      "source": [
+        "*Your answers here:*\n",
+        "\n",
+        "1. Single line model has the lower average wait time. As more people enter the lines the difference of time grows.\n",
+        "\n",
+        "2. The single line model was more fair.\n",
+        "\n",
+        "3. The single line tended to do better because if someone had a super full cart no would get stuck behind them with 1 or two items and they would could just wait until a line opened up then be out super quick.\n",
+        "\n",
+        "4. I see single line service the most in self check out lines, or smaller none grocery store lines for example barnes and nobles. Not all stores can use them because it takes up alot more space and with grocery stores having that huge of line can block alot of isles or goods."
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "jU0BTSI6jIDT"
+      },
+      "source": [
+        "---\n",
+        "## Bonus Challenges (if you finish early)\n",
+        "\n",
+        "Try one or more of these extensions:\n",
+        "\n",
+        "- **Smarter line picking:** Instead of round-robin, what if customers in the multi-queue model always join the **shortest line**? Does that close the gap with the single line? (Hint: you'll need to track queue length or estimated wait per lane as customers arrive.)\n",
+        "- **Change the parameters:** What happens with 5 registers? 60 customers? A faster arrival rate (`randint(1, 2)`)?\n",
+        "- **Add an express lane:** In the multi-queue model, reserve one register for customers with `service_time <= 3`. Does this help?\n",
+        "- **Track queue length over time:** At each time step, record how many people are waiting. Plot queue length over time for both models."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "E4jpwjPqjIDT"
+      },
+      "outputs": [],
+      "source": [
+        "# Bonus work here\n"
+      ]
+    }
+  ]
+}

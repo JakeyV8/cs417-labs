@@ -67,7 +67,18 @@ class HashTableOpen:
             key:   The key to insert.
             value: The value to associate with the key.
         """
-        pass  # TODO: implement this
+        start = self._hash(key)
+        for step in range(self.size):
+            index = (start +step)%self.size
+            if self.table[index] == None:
+                self.table[index] = [key,value]
+                self.count += 1
+                return
+            elif self.table[index][0] == key:
+                self.table[index][1] = value
+                return
+        raise Exception("Hash table is full")
+            
 
     # ── TODO 3: Get ───────────────────────────────────────────────
 
@@ -95,7 +106,14 @@ class HashTableOpen:
         Raises:
             KeyError: If the key is not found.
         """
-        pass  # TODO: implement this
+        start = self._hash(key)
+        for step in range(self.size):
+            index = (start +step)%self.size
+            if self.table[index] == None:
+                raise KeyError
+            elif self.table[index][0] == key:
+                return self.table[index][1]
+        raise KeyError
 
     # ── TODO 4: Delete ────────────────────────────────────────────
 

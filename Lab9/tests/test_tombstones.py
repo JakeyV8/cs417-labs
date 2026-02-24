@@ -46,4 +46,13 @@ class TestTombstones:
 
         Verify len() is correct after every step.
         """
-        pass  # TODO: write this test
+        def test_something(self):
+            ht = HashTableOpen(size=3)    # 1. Create a table
+            ht.put("a", 1)
+            ht.put("b", 1)
+            ht.put("c", 1)                 
+            ht.delete("a")
+            ht.put("a", 1)
+            ht.delete("b")
+            ht.delete("c")
+            assert len(ht) == 1 

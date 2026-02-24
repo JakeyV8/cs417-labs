@@ -70,7 +70,7 @@ class HashTableOpen:
         start = self._hash(key)
         for step in range(self.size):
             index = (start +step)%self.size
-            if self.table[index] == None:
+            if self.table[index] == None or self.table[index] == _TOMBSTONE:
                 self.table[index] = [key,value]
                 self.count += 1
                 return
@@ -111,6 +111,8 @@ class HashTableOpen:
             index = (start +step)%self.size
             if self.table[index] == None:
                 raise KeyError
+            elif self.table[index] == _TOMBSTONE:
+                continue
             elif self.table[index][0] == key:
                 return self.table[index][1]
         raise KeyError
@@ -137,7 +139,18 @@ class HashTableOpen:
         Raises:
             KeyError: If the key is not found.
         """
-        pass  # TODO: implement this
+        start = self._hash(key)
+        for step in range(self.size):
+            index = (start +step)%self.size
+            if self.table[index] == None:
+                raise KeyError
+            elif self.table[index] == _TOMBSTONE:
+                continue
+            elif self.table[index][0] == key:
+                self.table[index] = _TOMBSTONE
+                self.count -= 1
+                return
+        raise KeyError
 
     # ── Provided Methods (do not modify) ──────────────────────────
 

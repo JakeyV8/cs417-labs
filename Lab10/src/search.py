@@ -29,7 +29,7 @@ def sequential_search(a_list, target):
     """
     for item in a_list:
         if item == target:
-            return True
+            return (True,count)
     return False
 
 
@@ -96,7 +96,12 @@ def sequential_search_counted(a_list, target):
         sequential_search_counted([4, 8, 2, 15, 17], 17)  → (True, 5)
         sequential_search_counted([4, 8, 2, 15, 17], 99)  → (False, 5)
     """
-    pass  # TODO: implement this
+    count = 0
+    for item in a_list:
+        if item == target:
+            return (True,count)
+        count += 1
+    return False
 
 
 def binary_search_counted(a_list, target):
@@ -119,4 +124,16 @@ def binary_search_counted(a_list, target):
         binary_search_counted([2, 4, 8, 15, 17], 17)  → (True, 3)
         binary_search_counted([2, 4, 8, 15, 17], 99)  → (False, 3)
     """
-    pass  # TODO: implement this
+    first = 0
+    count = 0
+    last = len(a_list)-1
+    while first <= last:
+        mid = (first+last)//2
+        if a_list[mid] == target:
+            return (True, count)
+        elif target < a_list[mid]:
+            last = mid -1
+        else:
+            first = mid + 1
+            count += 1
+    return False

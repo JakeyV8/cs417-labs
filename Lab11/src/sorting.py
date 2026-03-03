@@ -67,7 +67,19 @@ def short_bubble_sort(a_list):
     Returns:
         The same list, now sorted in ascending order.
     """
-
+    for n in range(len(a_list)-1):
+        i = 0
+        flag = False
+        for j in range(len(a_list)-1-i):
+            if a_list[j] > a_list[j+1]:
+                temp = a_list[j]
+                a_list[j] = a_list[j+1]
+                a_list[j+1] = temp
+                flag = True
+            i += 1
+        if flag == False:
+            return a_list
+    return a_list
 
 
 # ── TODO 3: Insertion Sort ──────────────────────────────────────

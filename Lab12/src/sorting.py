@@ -1,34 +1,101 @@
 """
-Lab 11: Sorting — Why Big-O Isn't the Whole Story
+Lab 12: Breaking the O(n^2) Barrier
 
-In this lab you will implement two sorting algorithms (bubble sort
-and insertion sort), an optimized variant (short bubble sort), and
-counted versions that track comparisons and data moves.
+In this lab you will complete the core logic for three advanced
+sorting algorithms: shell sort, merge sort, and quicksort.
 
-Complete the five functions marked with TODO.
-Do NOT change the function signatures.
+The recursive structure and helper scaffolding are provided —
+your job is to fill in the key mechanisms:
+  - Shell sort: the gap insertion sort helper (Task 1)
+  - Merge sort: the merge step (Task 2)
+  - Quicksort: the partition (Task 3)
+
+Counted versions are provided complete for use in the analysis
+notebook.
+
+Complete the THREE sections marked with TODO.
+Do NOT change the function signatures or the provided code.
 
 Run tests:
     pytest -v
 """
 
 
-# ── TODO 1: Bubble Sort ─────────────────────────────────────────
+# ── TODO 1: Shell Sort — Gap Insertion Sort ───────────────────────
 
 
-def bubble_sort(a_list):
+def _gap_insertion_sort(a_list, start, gap):
     """
-    Sort a_list in ascending order using bubble sort.
+    Perform insertion sort on a sublist defined by a starting
+    position and gap.
 
-    Makes multiple passes through the list, comparing adjacent items
-    and swapping any pair that is out of order. After each pass, the
-    next largest item has "bubbled" into its correct position at the end.
+    This sorts the elements at positions start, start+gap,
+    start+2*gap, ... using insertion sort logic, but comparing
+    and shifting by 'gap' positions instead of 1.
 
     Algorithm:
-        1. Make n - 1 passes (outer loop, where n = len(a_list))
-        2. On pass i, compare adjacent items from position 0
-           up to position n - 1 - i
-        3. If a_list[j] > a_list[j + 1], swap them
+        1. Loop from start + gap to len(a_list), stepping by gap
+        2. For each position i:
+           - Save a_list[i] as current_value
+           - Set position = i
+           - Walk backward by gap: while position >= gap AND
+             a_list[position - gap] > current_value:
+               shift: a_list[position] = a_list[position - gap]
+               position = position - gap
+           - Place current_value at position
+
+    This is your insertion sort from Lab 11, but every "1"
+    becomes "gap". The while condition checks position >= gap
+    (not position >= 0) because we step back by gap, not by 1.
+
+    Args:
+        a_list: The full list being sorted.
+        start: The starting index of this sublist.
+        gap: The distance between sublist elements.
+    """
+    pass  # TODO: implement this
+
+
+def shell_sort(a_list):
+    """
+    Sort a_list in ascending order using Shell sort.
+
+    DO NOT MODIFY — this function is complete.
+    It calls your _gap_insertion_sort helper above.
+    """
+    gap = len(a_list) // 2
+    while gap > 0:
+        for start_position in range(gap):
+            _gap_insertion_sort(a_list, start_position, gap)
+        gap = gap // 2
+    return a_list
+
+
+# ── TODO 2: Merge Sort — The Merge Step ──────────────────────────
+
+
+def merge_sort(a_list):
+    """
+    Sort a_list in ascending order using merge sort.
+
+    The recursive structure is provided. Your job is to fill in
+    the MERGE STEP where indicated — combining two sorted halves
+    (left and right) back into a_list.
+
+    The merge uses three index variables, all starting at 0:
+      - i walks through the left half
+      - j walks through the right half
+      - k fills positions in a_list
+
+    The merge has THREE loops:
+      1. Main merge: while i < len(left) AND j < len(right)
+         Compare left[i] and right[j]. Take the SMALLER one
+         (use <= for stability) and put it at a_list[k].
+         Advance whichever index you took from, and advance k.
+      2. Left remainder: while i < len(left)
+         Copy left[i] to a_list[k], advance both.
+      3. Right remainder: while j < len(right)
+         Copy right[j] to a_list[k], advance both.
 
     Args:
         a_list: A list of comparable items.
@@ -36,112 +103,167 @@ def bubble_sort(a_list):
     Returns:
         The same list, now sorted in ascending order.
     """
-    pass  # TODO: implement this
+    if len(a_list) <= 1:
+        return a_list
+
+    mid = len(a_list) // 2
+    left = a_list[:mid]
+    right = a_list[mid:]
+
+    merge_sort(left)
+    merge_sort(right)
+
+    # ── MERGE STEP: fill in below ──────────────────────────
+    # Combine the sorted left and right halves back into a_list.
+    # Initialize: i = 0, j = 0, k = 0
+    # Then write the three while loops described above.
+
+    pass  # TODO: replace this with the merge logic
+
+    return a_list
 
 
-# ── TODO 2: Short Bubble Sort ───────────────────────────────────
+# ── TODO 3: Quicksort — The Partition ─────────────────────────────
 
 
-def short_bubble_sort(a_list):
+def _partition(a_list, first, last):
     """
-    Sort a_list using bubble sort with early termination.
+    Partition a_list[first..last] around a pivot value.
 
-    Works exactly like bubble_sort, but tracks whether any exchanges
-    happened during each pass. If a complete pass makes no exchanges,
-    the list is already sorted — stop immediately.
-
-    Hint: Use a boolean flag. Set it to False at the start of each
-    pass, set it to True whenever you swap. After the pass, check it.
-
-    Args:
-        a_list: A list of comparable items.
-
-    Returns:
-        The same list, now sorted in ascending order.
-    """
-    pass  # TODO: implement this
-
-
-# ── TODO 3: Insertion Sort ──────────────────────────────────────
-
-
-def insertion_sort(a_list):
-    """
-    Sort a_list in ascending order using insertion sort.
-
-    Builds a sorted region from the left side of the list. For each
-    new item, shift larger items to the right to make room, then
-    insert the item in its correct position.
+    Uses the first item as the pivot. Two markers scan inward:
 
     Algorithm:
-        1. Start at position 1 (position 0 is a sorted list of one)
-        2. Save the current item as current_value
-        3. Walk backward through the sorted region (position i-1 down to 0):
-           - If a_list[position] > current_value, shift it right
-             (copy it to position + 1)
-           - Otherwise, stop — you've found the insertion point
-        4. Place current_value at the insertion point
-
-    Hint: Use a while loop for the backward walk. Check
-    position >= 0 FIRST in the condition — think about why the
-    order matters.
+        1. pivot_value = a_list[first]
+        2. left_mark = first + 1, right_mark = last
+        3. Use a boolean 'done' flag, loop while not done:
+           a. Advance left_mark while left_mark <= right_mark
+              AND a_list[left_mark] <= pivot_value
+           b. Advance right_mark while left_mark <= right_mark
+              AND a_list[right_mark] >= pivot_value
+           c. If right_mark < left_mark: set done = True
+           d. Otherwise: swap a_list[left_mark] and a_list[right_mark]
+        4. Swap a_list[first] with a_list[right_mark]
+           (puts pivot in its final position)
+        5. Return right_mark
 
     Args:
-        a_list: A list of comparable items.
+        a_list: The list being sorted.
+        first: Start index of the region to partition.
+        last: End index of the region to partition.
 
     Returns:
-        The same list, now sorted in ascending order.
+        The index where the pivot ended up (the split point).
     """
     pass  # TODO: implement this
 
 
-# ── TODO 4: Counted Versions ────────────────────────────────────
+def _quick_sort_helper(a_list, first, last):
+    """Recursive quicksort. DO NOT MODIFY."""
+    if first < last:
+        split_point = _partition(a_list, first, last)
+        _quick_sort_helper(a_list, first, split_point - 1)
+        _quick_sort_helper(a_list, split_point + 1, last)
 
 
-def bubble_sort_counted(a_list):
+def quick_sort(a_list):
     """
-    Sort a_list using bubble sort, counting comparisons and exchanges.
+    Sort a_list in ascending order using quicksort.
 
-    Works exactly like bubble_sort, but also counts:
-    - comparisons: each time you check if a_list[j] > a_list[j+1]
-    - exchanges: each time you swap two items (count the swap as 1)
+    DO NOT MODIFY — this function is complete.
+    It calls _quick_sort_helper, which calls your _partition.
+    """
+    if len(a_list) > 1:
+        _quick_sort_helper(a_list, 0, len(a_list) - 1)
+    return a_list
 
-    Args:
-        a_list: A list of comparable items.
+
+# ── Counted Versions (PROVIDED — use in the analysis notebook) ────
+
+
+def merge_sort_counted(a_list):
+    """
+    Merge sort that also counts comparisons and data moves.
 
     Returns:
-        A tuple (sorted_list, comparisons, exchanges) where:
-            sorted_list: The sorted list.
-            comparisons: Total number of item comparisons made.
-            exchanges: Total number of swaps performed.
+        (sorted_list, comparisons, data_moves)
 
-    Example:
-        bubble_sort_counted([3, 1, 2])
-        → ([1, 2, 3], 3, 2)
+    You do NOT need to modify this function.
+    Use it in the analysis notebook to measure performance.
     """
-    pass  # TODO: implement this
+    counts = [0, 0]  # [comparisons, data_moves]
+
+    def _merge_sort(lst):
+        if len(lst) > 1:
+            mid = len(lst) // 2
+            left = lst[:mid]
+            right = lst[mid:]
+            _merge_sort(left)
+            _merge_sort(right)
+            i = j = k = 0
+            while i < len(left) and j < len(right):
+                counts[0] += 1
+                if left[i] <= right[j]:
+                    lst[k] = left[i]
+                    i += 1
+                else:
+                    lst[k] = right[j]
+                    j += 1
+                counts[1] += 1
+                k += 1
+            while i < len(left):
+                lst[k] = left[i]
+                counts[1] += 1
+                i += 1
+                k += 1
+            while j < len(right):
+                lst[k] = right[j]
+                counts[1] += 1
+                j += 1
+                k += 1
+
+    _merge_sort(a_list)
+    return (a_list, counts[0], counts[1])
 
 
-def insertion_sort_counted(a_list):
+def quick_sort_counted(a_list):
     """
-    Sort a_list using insertion sort, counting comparisons and data moves.
-
-    Works exactly like insertion_sort, but also counts:
-    - comparisons: each time you check if a_list[position] > current_value
-    - data_moves: each shift (moving an item right) counts as 1,
-      and the final placement of current_value counts as 1
-
-    Args:
-        a_list: A list of comparable items.
+    Quicksort that also counts comparisons and exchanges.
 
     Returns:
-        A tuple (sorted_list, comparisons, data_moves) where:
-            sorted_list: The sorted list.
-            comparisons: Total number of item comparisons made.
-            data_moves: Total number of shifts + placements.
+        (sorted_list, comparisons, exchanges)
 
-    Example:
-        insertion_sort_counted([3, 1, 2])
-        → ([1, 2, 3], 3, 4)
+    You do NOT need to modify this function.
+    Use it in the analysis notebook to measure performance.
     """
-    pass  # TODO: implement this
+    counts = [0, 0]  # [comparisons, exchanges]
+
+    def _partition(lst, first, last):
+        pivot_value = lst[first]
+        left_mark = first + 1
+        right_mark = last
+        done = False
+        while not done:
+            while left_mark <= right_mark and lst[left_mark] <= pivot_value:
+                counts[0] += 1
+                left_mark += 1
+            while left_mark <= right_mark and lst[right_mark] >= pivot_value:
+                counts[0] += 1
+                right_mark -= 1
+            if right_mark < left_mark:
+                done = True
+            else:
+                lst[left_mark], lst[right_mark] = lst[right_mark], lst[left_mark]
+                counts[1] += 1
+        lst[first], lst[right_mark] = lst[right_mark], lst[first]
+        counts[1] += 1
+        return right_mark
+
+    def _qs(lst, first, last):
+        if first < last:
+            sp = _partition(lst, first, last)
+            _qs(lst, first, sp - 1)
+            _qs(lst, sp + 1, last)
+
+    if len(a_list) > 1:
+        _qs(a_list, 0, len(a_list) - 1)
+    return (a_list, counts[0], counts[1])

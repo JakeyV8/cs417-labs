@@ -24,7 +24,16 @@ def build_parser():
     # TODO: Add --min-length / -m (type=int, default=1)
     # TODO: Add --sort-by / -s (choices=["freq", "alpha"], default="freq")
     # TODO: Add --reverse / -r (action="store_true")
-    pass
+    parser = argparse.ArgumentParser(description = "A script to count words!")
+
+    parser.add_argument('filename',help='The name of the file to process')
+    parser.add_argument("--ignore-case","-i",action = "store_true",help = "lowercase all words")
+    parser.add_argument("--top","-t", type = int,default = None,help = "show top N most frequent words")
+    parser.add_argument("--min-length" , "-m",type=int,default = 1, help = "only count words with at least this many chars")
+    parser.add_argument("--sort-by" , "-s",choices=["freq","alpha"],default ="freq",help ="how to sort top words" )
+    parser.add_argument("--reverse" , "-r",action="store_true",help = "reverse the sort order")
+    return parser
+
 
 
 def analyze(filepath, ignore_case=False, top=None, min_length=1,
@@ -57,7 +66,32 @@ def analyze(filepath, ignore_case=False, top=None, min_length=1,
     #   - Take the first 'top' entries
     #   - Return multi-line string:
     #       "<filename>: <count> words\n\nTop <N> words:\n  <word>: <count>\n  ..."
-    pass
+    try:
+        with open(filepath,'r') as f:
+            text = f.read()
+            words = text.split()
+            if ignore_case:
+                temp = [word.lower()for word in words]
+                words = temp
+            temp = []
+            for word in words:
+                if len(word) > min_length:
+                    temp.append(word)
+            words = temp
+            count = len(words)
+            if top == None:
+                print(f"{filepath}: {count} words") 
+            else:
+                frequency_data = Counter(words).most_common(top)
+                if sort_by == "alpha":
+                    words.sort()
+                if reverse == True:
+                    words.reverse()
+                print(f"{filepath}: {count} words\n\nTop <N> words:\n {frequency_data}") 
+    except FileNotFoundError:
+        print("Error: file '<filepath>' not found",file=sys.stderr)
+        sys.exit(1)
+
 
 
 def main():
@@ -66,7 +100,13 @@ def main():
     # TODO: Parse args
     # TODO: Call analyze with the parsed arguments
     # TODO: Print the result
-    pass
+    parser = build_parser()
+    args = parser.parse_args()
+    analyze_results = analyze(args.filename, args.ignore_case,args.top,args.min_length,args.sort_by,args.reverse)
+    print(analyze_results)
+
+
+
 
 
 if __name__ == "__main__":

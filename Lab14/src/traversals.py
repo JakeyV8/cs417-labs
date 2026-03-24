@@ -6,6 +6,7 @@ The BST module is provided — don't modify bst.py.
 """
 
 from bst import BST
+from collections import deque
 
 
 def build_sample_tree():
@@ -129,7 +130,19 @@ def levelorder(node):
 
     TODO: implement this
     """
-    pass  # TODO: implement this
+    if node == None:
+        return []
+    queue = deque([node])
+    record = []
+    while queue:
+        front = queue.popleft()
+        value = front.value
+        record.append(value)
+        if front.left != None:
+            queue.append(front.left)
+        if front.right != None:
+            queue.append(front.right)
+    return record
 
 
 # ── Main ─────────────────────────────────────────────────────────────

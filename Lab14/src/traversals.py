@@ -106,7 +106,12 @@ def postorder(node):
 
     TODO: implement this
     """
-    pass  # TODO: implement this
+    if node == None:
+        return []
+    else:
+        left = postorder(node.left)
+        right = postorder(node.right)
+        return left + right + [node.value]
 
 
 # ── Task 5: Level-Order Traversal (BFS) ─────────────────────────────

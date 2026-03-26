@@ -79,4 +79,16 @@ def sort_by_priority(tasks):
         Same-priority tasks appear in their original order.
     """
     # TODO: Use a heap with a sequence counter as tiebreaker
-    pass
+    h = []
+    order = []
+    max = 0
+    for i in range(len(tasks)):
+        if max < tasks[i][0]:
+            max = tasks[i][0]
+    sequence_counter = [0]*max
+    for i in range(len(tasks)):
+        heapq.heappush(h,(tasks[i][0],sequence_counter[tasks[i][0]-1],tasks[i][1]))
+        sequence_counter[tasks[i][0]-1]+=1
+    while h:
+        order.append(heapq.heappop(h)[-1])
+    return order

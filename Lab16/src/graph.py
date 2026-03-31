@@ -120,17 +120,16 @@ def dfs(graph, start):
     order = []
     stack = []
 
-    # TODO: Add `start` to the stack
+    stack.append(start)
 
     while stack:
-        # TODO: Pop the next node from the top of the stack
-
-        # TODO: If `current` has already been visited, skip it (continue).
-        #        Otherwise, mark it as visited and add it to the order.
-
+        current = stack.pop()
+        if current in visited:
+            continue
+        visited.add(current)
+        order.append(current)
         for neighbor in graph.get_neighbors(current):
-            pass
-            # TODO: Add the neighbor to the stack
+            stack.append(neighbor)
 
     return order
 

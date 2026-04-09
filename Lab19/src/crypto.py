@@ -113,7 +113,7 @@ class CoinCache:
         # Store {"price": price, "timestamp": time.time()} in _store
         self._store[coin_id] = {
             "price":price,
-            "time":time.time()
+            "timestamp":time.time()
         }
 
     def get(self, coin_id: str):
@@ -129,8 +129,12 @@ class CoinCache:
         # TODO: Task 3 — basic version (just check if key exists)
         # TODO: Task 4 — add TTL check (is the entry still fresh?)
         if coin_id in self._store:
-            self.hits += 1
-            return self._store[coin_id]["price"]
+            if time.time()-self._store[coin_id]["timestamp"] <= self.ttl_seconds:
+                self.hits += 1
+                return self._store[coin_id]["price"]
+            else: 
+                self.misses+=1
+                return None
         else:
             self.misses+= 1
             return None

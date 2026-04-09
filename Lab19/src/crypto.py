@@ -26,11 +26,6 @@ def get_price(coin_id: str, api_key: str) -> float:
     Raises:
         RuntimeError: If the API response status code is not 200.
     """
-    # TODO: Task 1
-    # 1. Make a GET request to BASE_URL + "/simple/price"
-    #    with params: ids, vs_currencies, x_cg_demo_api_key
-    # 2. Check status code — raise RuntimeError if not 200
-    # 3. Parse JSON and return the USD price as a float
     url = "https://api.coingecko.com/api/v3/simple/price"
     response = requests.get(
         url,
@@ -68,7 +63,20 @@ def get_prices_batch(coin_ids: list, api_key: str) -> dict:
     # 2. Make ONE GET request with the joined string as "ids"
     # 3. Check status code
     # 4. Parse JSON and flatten into {coin_id: price} dict
-    pass
+    strings = ",".join(coin_ids)
+    response = requests.get(
+        url = "https://api.coingecko.com/api/v3/simple/price",
+        params={
+            "ids": strings,
+            "vs_currencies": "usd",
+            "x_cg_demo_api_key": api_key
+        }
+    )
+    if response.status_code != 200:
+        raise RuntimeError
+    data = response.json()
+    coin_dict = {}
+    return {coin: float(data[coin]["usd"]) for coin in coin_ids}
 
 
 class CoinCache:

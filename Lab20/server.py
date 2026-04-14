@@ -13,11 +13,12 @@ app = FastAPI()
 # Task 1: The Naive Server
 # ---------------------------------------------------------------------------
 # Import the grade function from grading.py, then create a POST /grade
+import grading
+@app.post("/grade")
+def grade(data: dict):
+    score = grading.grade(data["student"],data["lab"])
+    return {"student":data["student"],"lab": data["lab"], "score": score}
 # endpoint that accepts {"student": ..., "lab": ...} and returns the score.
-
-# TODO: import grade from grading
-
-# TODO: POST /grade endpoint
 
 
 # ---------------------------------------------------------------------------

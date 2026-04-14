@@ -16,7 +16,13 @@ def submit(student: str, lab: int, base_url: str = "http://localhost:8000") -> d
     Return the response as a dictionary.
     """
     # TODO: Implement
-    pass
+    response = requests.post(
+        f"{base_url}/grade",
+        json={"student":student,"lab":lab}
+    )
+    if response.status_code != 200:
+        raise RuntimeError
+    return response.json()
 
 
 def submit_with_retry(

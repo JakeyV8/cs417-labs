@@ -23,9 +23,9 @@ def grade(data: dict):
     if "submission_id" in data:
         sub_id =data.get("submission_id")
         if sub_id in completed:
-            return {"student":data["student"],"lab": data["lab"], "score": score,"slow":slow}
+            return completed[sub_id]
         if sub_id not in completed:
-            completed[sub_id] = sub_id
+            completed[sub_id] = {"student":data["student"],"lab": data["lab"], "score": score,"slow":slow,"submission_id":sub_id}
         grading_log.append({"student":data["student"],"lab": data["lab"], "score": score,"slow":slow,"submission_id":sub_id})
         return {"student":data["student"],"lab": data["lab"], "score": score,"slow":slow,"submission_id":sub_id}
     grading_log.append({"student":data["student"],"lab": data["lab"], "score": score,"slow":slow})

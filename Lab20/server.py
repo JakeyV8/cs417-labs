@@ -14,10 +14,13 @@ app = FastAPI()
 # ---------------------------------------------------------------------------
 # Import the grade function from grading.py, then create a POST /grade
 import grading
+grading_log = []
 @app.post("/grade")
 def grade(data: dict):
     score = grading.grade(data["student"],data["lab"])
-    return {"student":data["student"],"lab": data["lab"], "score": score}
+    slow = data.get("slow",False)
+    grading_log.append({"student":data["student"],"lab": data["lab"], "score": score,"slow":slow})
+    return {"student":data["student"],"lab": data["lab"], "score": score,"slow":slow}
 # endpoint that accepts {"student": ..., "lab": ...} and returns the score.
 
 
@@ -29,13 +32,18 @@ def grade(data: dict):
 # to grade(), and (2) append each grading event to the log.
 # Add GET /log and POST /reset-log endpoints.
 
-# TODO: grading_log = []
 
-# TODO: update POST /grade to log events and support "slow"
 
+# TODO: update POST /grade to log events and support "slow
 # TODO: GET /log endpoint
-
+@app.get("/log")
+def log():
+    return {"entries":grading_log}
 # TODO: POST /reset-log endpoint
+@app.post("/reset-log")
+def reset_log():
+    grading_log.clear()
+    return{"status":"cleared"}
 
 
 # ---------------------------------------------------------------------------

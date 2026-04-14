@@ -15,10 +15,19 @@ app = FastAPI()
 # Import the grade function from grading.py, then create a POST /grade
 import grading
 grading_log = []
+completed = {}
 @app.post("/grade")
 def grade(data: dict):
     score = grading.grade(data["student"],data["lab"])
     slow = data.get("slow",False)
+    if "submission_id" in data:
+        sub_id =data.get("submission_id")
+        if sub_id in completed:
+            return {"student":data["student"],"lab": data["lab"], "score": score,"slow":slow}
+        if sub_id not in completed:
+            completed[sub_id] = sub_id
+        grading_log.append({"student":data["student"],"lab": data["lab"], "score": score,"slow":slow,"submission_id":sub_id})
+        return {"student":data["student"],"lab": data["lab"], "score": score,"slow":slow,"submission_id":sub_id}
     grading_log.append({"student":data["student"],"lab": data["lab"], "score": score,"slow":slow})
     return {"student":data["student"],"lab": data["lab"], "score": score,"slow":slow}
 # endpoint that accepts {"student": ..., "lab": ...} and returns the score.
@@ -60,7 +69,10 @@ def reset_log():
 # TODO: update POST /grade to check submission_id
 
 # TODO: POST /reset-completed endpoint
-
+@app.post("/reset-completed")
+def reset_completed():
+    completed.clear()
+    return{"status":"cleared"}
 
 # ---------------------------------------------------------------------------
 # Task 4: Honest About Time

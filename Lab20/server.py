@@ -14,8 +14,13 @@ app = FastAPI()
 # ---------------------------------------------------------------------------
 # Import the grade function from grading.py, then create a POST /grade
 import grading
+from fastapi import BackgroundTasks
+from fastapi.responses import JSONResponse
+import uuid
 grading_log = []
 completed = {}
+jobs = {}
+job_submission_map = {}
 @app.post("/grade")
 def grade(data: dict):
     score = grading.grade(data["student"],data["lab"])
@@ -89,7 +94,31 @@ def reset_completed():
 # TODO: job_submission_map = {}
 
 # TODO: POST /grade-async endpoint
-
+@app.post("/grade-async")
+def grade_async(data:dict,background_tasks:BackgroundTasks):
+    sub_id = data.get("submission_id")
+    if sub_id and sub_id in job_submission_map:
+        job_id = job_submission_map[sub_id]
+        return {"job_id":job_id}
+    job_id = str(uuid.uuid4())
+    jobs[job_id] = {"status": "pending"}
+    background_tasks.add_task(run_grade_job, job_id, data.get("student"), data.get("lab"))
+    if sub_id:
+        job_submission_map[sub_id] = job_id
+    return JSONResponse({"job_id": job_id, "status": "accepted"},status_code=202)
 # TODO: run_grade_job helper function
-
+def run_grade_job(job_id,student,lab):
+    score = grading.grade(student,lab,slow=True)
+    dictionary = {"student":student,"lab":lab,"score":score}
+    grading_log.append(dictionary)
+    jobs[job_id] = {"status":completed}
 # TODO: GET /grade-jobs/{job_id} endpoint
+@app.get("/grade-jobs/{job_id}")
+def grade_jobs(job_id):
+    if job_id not in job_submission_map:
+        return JSONResponse({"error": "job not found"}, status_code=404)
+    job = jobs[job_id]
+    if job["status"] == 'pending':
+        return {"job_id": job_id,"status":"pending"}
+    if job["status"] == "complete":
+        return {"job_id":job_id,"status":"complete","result":job}

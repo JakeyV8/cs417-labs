@@ -26,3 +26,26 @@ Solution B
 Solution C:
     Good: The creation of the seen, and seen order from lines 13 and 14 allow for more data and the potenital to use more and update the code to give more then just what it can. Line 29 was a simple return line that made sense and was the most clean out of the other return lines.
     Bad: In lines 21 - 24, that whole process makes the time complexity incredibly high, looping through the whole list multiple times can be incredibly draining on resources. 
+
+    Part 3
+    === Regime 1 — small fixed vocabulary (50 distinct items) ===
+         n |   unique |     A (heap) |     B (sort) |     C (loop)
+------------------------------------------------------------------------
+       100 |       50 |       0.07ms |       0.03ms |       0.07ms
+     1,000 |       50 |       0.09ms |       0.06ms |       0.77ms
+    10,000 |       50 |       0.69ms |       0.42ms |       7.40ms
+   100,000 |       50 |       6.46ms |       5.10ms |     104.79ms
+
+=== Regime 2 — vocabulary scales with n (unique ≈ n/2) ===
+         n |   unique |     A (heap) |     B (sort) |     C (loop)
+------------------------------------------------------------------------
+       100 |       50 |       0.06ms |       0.04ms |       0.13ms
+     1,000 |      500 |       0.25ms |       0.42ms |      10.29ms
+    10,000 |    5,000 |       2.80ms |       4.40ms |     639.99ms
+
+    The Mypy return statement:
+    src/solution_c.py:29: error: Incompatible return value type (got "list[tuple[str, int]]", expected "list[int]")  [return-value]
+Found 1 error in 1 file (checked 3 source files)
+
+
+ My answers for A and B are clear and the results support them. B handled the unqiue number not growing the best out of everthing and this makes sense because the sort only sorts 50 numbers, not the N size numbers, and A worked best for the larger sorting sizes. From the mypy --strict I change my opion on the return line of solution C. Orginally looking at it that was what I would of done for my return line because it seems the most simple, but it returns both the str and the int. 

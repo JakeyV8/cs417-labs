@@ -49,3 +49,10 @@ Found 1 error in 1 file (checked 3 source files)
 
 
  My answers for A and B are clear and the results support them. B handled the unqiue number not growing the best out of everthing and this makes sense because the sort only sorts 50 numbers, not the N size numbers, and A worked best for the larger sorting sizes. From the mypy --strict I change my opion on the return line of solution C. Orginally looking at it that was what I would of done for my return line because it seems the most simple, but it returns both the str and the int. 
+
+
+ Scenario A:
+ Yes my ranking will change. Solution's A and B will switch spots. This scenario with under 50 items is great for solution B because thats where it preforms best with smaller data sets. Solution A still works better then solution C, but A is slightly slower then B. Though there is the issue on resources where time speed doesnt matter here as much as cost effectiveness. 
+
+ Scenario B:
+ My answers dont change because solution A makes the most sense for a work load or regime 2, where solution A performed the best in with, B in second then C in last. Solution A is very fast compared to the other solutions and if the function needs to run it 10,000 times a second then solution A would be near reaching that or closer then any of the other solutions. The concern of needing to do it 10,000 times a second is now new, so it is very important to use the quickest solution, where scenario A had a week to run it once. 

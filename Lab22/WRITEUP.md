@@ -56,3 +56,8 @@ Found 1 error in 1 file (checked 3 source files)
 
  Scenario B:
  My answers dont change because solution A makes the most sense for a work load or regime 2, where solution A performed the best in with, B in second then C in last. Solution A is very fast compared to the other solutions and if the function needs to run it 10,000 times a second then solution A would be near reaching that or closer then any of the other solutions. The concern of needing to do it 10,000 times a second is now new, so it is very important to use the quickest solution, where scenario A had a week to run it once. 
+
+ Part 5:
+I am rejecting solution C, below is my message.
+
+I enjoyed reading your code and seeing how you would think. Unfortunatly the use of seen_order data then going through the data set multiple times for each unique name, is a cost effective and slow way of doing things. Although I liked the scalability of your coding, the structure of it can be adjusted. It was a pleasure reading your code but the way this is designed is not ideal. I recommend making something that is simplier and faster, perhaps using a sorting package. 

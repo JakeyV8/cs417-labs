@@ -30,14 +30,28 @@ def parse_csv(text: str) -> list[dict]:
     """Return a list of row dicts: {"date", "vendor", "amount", "note"}.
     Skip lines that don't have 4 comma-separated fields.
     """
-    raise NotImplementedError("Part 1: implement parse_csv")
+    rows = []
+    lines = text.strip().splitlines()
+    for line in lines[1:]:
+            parts = line.strip().split(",")
+            if len(parts) != 4:
+                continue
+            rows.append({
+                "date":parts[0],
+                "vendor":parts[1],
+                "amount":parts[2],
+                "note":parts[3],
+            })
+    return rows
 
 
 def parse_json(text: str) -> list[dict]:
     """Return a list of row dicts: {"date", "vendor", "amount", "note"}.
     Input is JSON text — same fields as the CSV, just JSON-shaped.
     """
-    raise NotImplementedError("Part 1: implement parse_json")
+    data = json.loads(text)
+    return data
+        
 
 
 # -----------------------------------------------------------------------------
@@ -51,7 +65,13 @@ def categorize(vendor: str, categories: dict) -> str:
     A vendor matches a category if any of the keywords appears in the
     vendor name (case-insensitive). Return "other" if no category matches.
     """
-    raise NotImplementedError("Part 2: implement categorize")
+    vendor_upper = vendor.upper()
+
+    for category,keywords in categories.items():
+        for keyword in keywords:
+            if keyword in vendor_upper:
+                return category
+    return "other"
 
 
 # -----------------------------------------------------------------------------
@@ -63,7 +83,18 @@ def build_report(rows: list[dict], categories: dict) -> dict:
 
     Pure: must NOT open files, read stdin, or print anything.
     """
-    raise NotImplementedError("Part 3: implement build_report")
+    totals = {}
+    for row in rows:
+        vendor = row["vendor"].upper()
+        amount = float(row["amount"])
+        cat = "other"
+        for c, keys in categories.items():
+            for key in keys:
+                if key in vendor:
+                    cat = c
+        totals[cat] = totals.get(cat, 0.0) + float(amount)
+    return totals
+
 
 
 # -----------------------------------------------------------------------------

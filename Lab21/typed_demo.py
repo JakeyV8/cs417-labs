@@ -1,4 +1,4 @@
-#  mypy typed_demo.py
+"""
 def greet(name: str) -> str:
     return f"Hello, {name}!"
 
@@ -37,3 +37,17 @@ else:
 
 def format_id(value: int | str) -> str:
     return f"id-{value}"
+"""
+#Section 4
+from typing import TypedDict
+
+class StudentRow(TypedDict):
+    name: str
+    email: str
+    grade: str
+
+def read_roster(path: str) -> list[StudentRow]:
+    # pretend this reads a CSV
+    return [{"name": "Alice", "email": "alice@uni.edu", "grade": "92"}]
+roster = read_roster("roster.csv")
+print(roster[0]["namee"])   # typo!
